@@ -1,48 +1,58 @@
 
+"""
+PySpark Complex Data Types & Aggregations Tutorial
+==================================================
+
+THEORY: Understanding PySpark Aggregations and Complex Types
+-----------------------------------------------------------
+1. Aggregations (groupBy):
+   Aggregations are 'Wide Transformations' because they require a 'Shuffle' operation.
+   Data with the same key is moved across the cluster to the same executor so it 
+   can be processed together (e.g., to calculate a sum or count).
+
+2. Complex Data Types (Arrays):
+   - collect_list: An aggregation function that returns an array of all values in 
+     the group. It preserves duplicates and maintains the order (non-deterministically).
+   - collect_set: Similar to collect_list, but returns an array of UNIQUE values. 
+     This is useful for deduplicating items within a group.
+
+3. The expr() Function:
+   Bridges the gap between the DataFrame API and Spark SQL. It allows you to write 
+   SQL-like expressions (like CASE-WHEN or complex math) directly within 
+   DataFrame transformations like withColumn() or select().
+"""
+
 import os
 import sys
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import sum, count, collect_list, collect_set, expr
 
-"""
-PySpark Complex Data Types Introduction
-This script demonstrates common PySpark operations including:
-1. Environment configuration for local Spark execution.
-2. Basic DataFrame creation and display.
-3. GroupBy and Aggregation functions (sum, count).
-4. Working with Complex Data Types (collect_list, collect_set).
-5. Using Spark SQL expressions (expr) for conditional logic.
-6. Data deduplication and final reporting.
-"""
-
 # ==============================================================================
 # 1. ENVIRONMENT SETUP
 # ==============================================================================
-
-# Force Spark to use the current virtual environment's Python executable
-# This ensures consistency between the driver and workers.
+# Consistent Python environment for Driver (Local) and Workers (Executors)
 os.environ['PYSPARK_PYTHON'] = sys.executable
 os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
 
-# Configure JAVA_HOME for Spark's JVM requirements
-# Adjust these paths if your JDK location differs.
+# Ensure JVM can find the Java Runtime
 os.environ['JAVA_HOME'] = r'C:\Program Files\Amazon Corretto\jdk1.8.0_482'
 os.environ['PATH'] = r'C:\Program Files\Amazon Corretto\jdk1.8.0_482\bin' + os.pathsep + os.environ['PATH']
 
 # ==============================================================================
 # 2. SPARK SESSION INITIALIZATION
 # ==============================================================================
+# .master("local[*]") uses all available cores on your machine.
 spark = SparkSession.builder \
     .appName("PySpark Complex Types Tutorial") \
     .master("local[*]") \
     .getOrCreate()
 
 # ==============================================================================
-# 3. BASIC AGGREGATIONS & COMPLEX TYPES (Part 1)
+# 3. BASIC AGGREGATIONS & COMPLEX TYPES (ARRAY TYPE)
 # ==============================================================================
 
-# Sample transactional data
-data = [
+# Sample transactional data representing (Name, City, TransactionAmount)
+transaction_data = [
     ("sai", "chn", 40),
     ("zeyo", "hyd", 10),
     ("sai", "hyd", 20),
@@ -51,58 +61,42 @@ data = [
     ("zeyo", "hyd", 10)
 ]
 
-# Create initial DataFrame
-df = spark.createDataFrame(data, ["name", "city", "amount"])
+# Create DataFrame with explicit column names
+df_transactions = spark.createDataFrame(transaction_data, ["name", "city", "amount"])
 print("--- Raw Transactional Data ---")
-df.show()
+df_transactions.show()
 
-# Simple GroupBy: Total amount per name
+# 3.1 Basic Aggregation: Summing values by category
 print("--- Aggregation: Sum by Name ---")
-aggdf = df.groupBy("name").agg(sum("amount").alias("total"))
-aggdf.show()
+# alias() is crucial for readability in final reports
+agg_sum_df = df_transactions.groupBy("name").agg(sum("amount").alias("total_amount"))
+agg_sum_df.show()
 
-# Adding Count: Number of transactions per name
-print("--- Aggregation: Sum and Count ---")
-aggdf = df.groupBy("name").agg(
+# 3.2 Complex Types: collect_list (Array of all values including duplicates)
+print("--- Aggregation: collect_list (Capturing All Values) ---")
+# This transforms standard columns into an ArrayType column
+agg_complex_df = df_transactions.groupBy("name").agg(
     sum("amount").alias("total"),
-    count("amount").alias("cnt")
+    count("amount").alias("transaction_count"),
+    collect_list("amount").alias("amount_history")
 )
-aggdf.show()
+agg_complex_df.show()
 
-# Introducing collect_list: Gathers all values into an array (allows duplicates)
-print("--- Aggregation: collect_list (Includes Duplicates) ---")
-aggdf = df.groupBy("name").agg(
-    sum("amount").alias("total"),
-    count("amount").alias("cnt"),
-    collect_list("amount").alias("amt_collect")
-)
-aggdf.show()
-
-# Introducing collect_set: Gathers unique values into an array
+# 3.3 Complex Types: collect_set (Array of unique values)
 print("--- Aggregation: collect_set (Unique Values Only) ---")
-aggdf = df.groupBy("name").agg(
+# Useful for finding unique cities or distinct price points per user
+agg_unique_df = df_transactions.groupBy("name").agg(
     sum("amount").alias("total"),
-    count("amount").alias("cnt"),
-    collect_list("amount").alias("amt_collect"),
-    collect_set("amount").alias("amt_set")
+    collect_list("amount").alias("all_amounts"),
+    collect_set("amount").alias("unique_amounts")
 )
-aggdf.show()
-
-# Multi-column GroupBy: Aggregating by Name AND City
-print("--- Aggregation: GroupBy Name and City ---")
-aggdf = df.groupBy("name", "city").agg(
-    sum("amount").alias("total"),
-    count("amount").alias("cnt"),
-    collect_list("amount").alias("amt_collect"),
-    collect_set("amount").alias("amt_set")
-)
-aggdf.show()
+agg_unique_df.show()
 
 # ==============================================================================
-# 4. CONDITIONAL LOGIC WITH expr() AND CASE-WHEN
+# 4. CONDITIONAL LOGIC & DATA CATEGORIZATION (expr)
 # ==============================================================================
 
-# Customer demographic data
+# Customer demographic data (ID, Name, Age, Gender)
 customer_data = [
     (1, "Alice", 25, "F"),
     (2, "Bob", 40, "M"),
@@ -114,36 +108,27 @@ customer_data = [
     (8, "Rita", 34, "F")
 ]
 
-columns = ["customer_id", "name", "age", "gender"]
-df_customers = spark.createDataFrame(customer_data, schema=columns)
-print("--- Customer Data ---")
-df_customers.show()
+df_customers = spark.createDataFrame(customer_data, ["customer_id", "name", "age", "gender"])
 
-# Define age groups using SQL-style CASE-WHEN logic inside expr()
-print("--- Applying Age Groups via CASE-WHEN ---")
-df_with_groups = df_customers.withColumn("age_group", expr("""
+print("--- Applying Age Segments via SQL expressions ---")
+# Using expr() allows us to write standard SQL CASE statements
+# This is often more readable than nested when() functions for complex logic.
+df_segmented = df_customers.withColumn("age_segment", expr("""
     CASE 
-        WHEN age >= 19 AND age <= 35 THEN '19-35'
-        WHEN age >= 36 AND age <= 50 THEN '36-50'
-        WHEN age > 51 THEN '51+'
-        ELSE 'NA'
+        WHEN age BETWEEN 19 AND 35 THEN 'Young Professional'
+        WHEN age BETWEEN 36 AND 50 THEN 'Mid-Career'
+        WHEN age > 50 THEN 'Senior'
+        ELSE 'Other'
     END
 """))
-df_with_groups.show()
-
-# Aggregate to count customers in each age group
-print("--- Count by Age Group ---")
-df_age_summary = df_with_groups.groupby("age_group").agg(
-    count("age_group").alias("count")
-)
-df_age_summary.show()
+df_segmented.show()
 
 # ==============================================================================
-# 5. PRODUCT SALES ANALYSIS & DEDUPLICATION
+# 5. DATA DEDUPLICATION & REPORTING
 # ==============================================================================
 
-# Sales data with potential duplicate transactions
-sales_data = [
+# Sales log with potential duplicate entries
+sales_log = [
     ("2020-05-30", "Headphone"),
     ("2020-06-01", "Pencil"),
     ("2020-06-02", "Mask"),
@@ -153,23 +138,13 @@ sales_data = [
     ("2020-05-30", "T-Shirt")
 ]
 
-sales_schema = ["sell_date", "product"]
-df_sales = spark.createDataFrame(sales_data, sales_schema)
-print("--- Raw Sales Data ---")
-df_sales.show()
+df_sales = spark.createDataFrame(sales_log, ["sell_date", "product"])
 
-# Aggregation without deduplication: Shows all products sold per day
-print("--- Daily Product Collection (Before Deduplication) ---")
-agg_sales_raw = df_sales.groupby("sell_date").agg(
-    collect_set("product").alias("products"),
-    count("product").alias("null_sell")
+print("--- Deduplicated Daily Sales Report ---")
+# dropDuplicates() ensures we don't count the same product twice for the same day
+# collect_set() then aggregates these unique items into an array
+df_daily_report = df_sales.dropDuplicates().groupBy("sell_date").agg(
+    collect_set("product").alias("unique_products_sold"),
+    count("product").alias("total_unique_items")
 )
-agg_sales_raw.show()
-
-# Aggregation with deduplication: Removes duplicate (Date, Product) pairs first
-print("--- Daily Product Collection (After dropDuplicates) ---")
-agg_sales_clean = df_sales.dropDuplicates().groupby("sell_date").agg(
-    collect_set("product").alias("products"),
-    count("product").alias("null_sell")
-)
-agg_sales_clean.show()
+df_daily_report.orderBy("sell_date").show()
