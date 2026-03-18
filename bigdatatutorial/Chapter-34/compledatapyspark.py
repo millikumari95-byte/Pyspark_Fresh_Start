@@ -17,9 +17,9 @@ spark = SparkSession.builder \
     .appName("PySpark Window and Struct Tutorial") \
     .master("local[*]") \
     .getOrCreate()
-
+sc=spark.sparkContext
 #Read the file (Make sure you saved the fixed k.json first!)
-#df = spark.read.format("json").load("D:\k.json")
+# #df = spark.read.format("json").load("D:\k.json")
 df = spark.read.format("json").option("multiline","true").load("D:\k.json")
 df.show()
 df.printSchema()
@@ -29,3 +29,5 @@ flatdf=df.selectExpr("id","trainer",
                      "zeyoAddress.temporaryAddress")
 flatdf.show()
 flatdf.printSchema()
+
+
