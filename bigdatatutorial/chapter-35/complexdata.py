@@ -18,16 +18,23 @@ spark = SparkSession.builder \
     .master("local[*]") \
     .getOrCreate()
 sc=spark.sparkContext
-#Read the file (Make sure you saved the fixed k.json first!)
-# #df = spark.read.format("json").load("D:\k.json")
-df = spark.read.format("json").option("multiline","true").load("D:\k.json")
+
+data = """
+{
+    "id" : 1,
+    "trainer" : "sai",
+    "zeyoAddress" : {
+        "permanentAddress" : "Hyderabad",
+        "temporaryAddress" : "Chennai"
+    }
+}
+"""
+
+df = spark.read.json(sc.parallelize([data]))
 df.show()
 df.printSchema()
-
 flatdf=df.selectExpr("id","trainer",
                      "zeyoAddress.permanentAddress",
                      "zeyoAddress.temporaryAddress")
 flatdf.show()
 flatdf.printSchema()
-
-
