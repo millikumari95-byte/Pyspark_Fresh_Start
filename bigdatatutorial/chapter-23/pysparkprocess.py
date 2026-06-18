@@ -23,13 +23,32 @@ spark = SparkSession.builder \
     .config("spark.default.parallelism", "1") \
     .getOrCreate()
 
-# ==============================================================================
-# 3. File Read from csv and txt
-# ==============================================================================
+sc= spark.sparkContext
 
-#conf = SparkConf().setAppName("pyspark").setMaster("local[*]").set("spark.driver.host","localhost").set("spark.default.parallelism", "1")
-readTextFile = spark.sparkContext
-readCSV = spark.read
 
-readTextFile.textFile("file:///C:/Users/Milli/IdeaProjects/newpyspark/.venv/Lib/site-packages/pyspark/sql/dt.txt").foreach(print)
-readCSV.csv("file:///C:/Users/Milli/IdeaProjects/newpyspark/.venv/Lib/site-packages/pyspark/sql/dt.txt").show()
+print("====started====")
+a=2
+print(a)
+
+b=a+2
+print(b)
+
+c="zeyobron"
+print(c)
+
+d=c+"analytics"
+print(d)
+
+ls=[1,2,3]
+print(ls)
+
+rddls=sc.parallelize(ls)
+print("====rddls===")
+print(rddls.collect())
+
+
+addrdd=rddls.map(lambda x:x + 2)
+print("======addrdd===")
+print(addrdd.collect())
+
+
