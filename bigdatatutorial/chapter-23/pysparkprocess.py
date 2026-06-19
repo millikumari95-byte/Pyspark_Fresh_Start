@@ -2,13 +2,13 @@ import os
 import sys
 from pyspark import SparkContext,SparkConf
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import sum, count, collect_list, collect_set, expr
+
 
 # ==============================================================================
 # 1. ENVIRONMENT SETUP
 # ==============================================================================
 # Consistent Python environment for Driver (Local) and Workers (Executors)
-#valueInThisThatWeAreStoring = sys.executable
+
 os.environ['PYSPARK_PYTHON'] = sys.executable
 os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
 
