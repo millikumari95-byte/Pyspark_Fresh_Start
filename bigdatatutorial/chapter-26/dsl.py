@@ -94,3 +94,7 @@ orcdf=(
 )
 print("======orcdf=====")
 orcdf.show()
+
+orcdf.createOrReplaceTempView("varanasi")
+
+spark.sql("select * from varanasi where id >0").show()
