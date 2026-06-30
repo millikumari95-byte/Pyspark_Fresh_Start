@@ -150,4 +150,14 @@ spark.sql("select category,amount,lead(amount) OVER (partition by category order
 spark.sql("select category,amount,lag(amount) OVER (partition by category order by amount desc) AS lag From df ").show()
 #Having functions
 spark.sql("select category ,count(category) as cnt from df group by category having count(category)>1").show()
-
+#join
+#inner join
+spark.sql("select a.* ,b.product from cust a join prod b on a.id=b.id").show()
+#left join
+spark.sql("select a.* ,b.product from cust a left join prod b on a.id=b.id").show()
+#Right join
+spark.sql("select a.* ,b.product from cust a right join prod b on a.id=b.id").show()
+#FULL JOIN
+spark.sql("select a.* ,b.product from cust a full join prod b on a.id=b.id").show()
+#Left anti join
+spark.sql("select a.*  from cust a left anti  join prod b on a.id=b.id").show()
